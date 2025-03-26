@@ -109,6 +109,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>Msimg32.lib;Gdi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -135,10 +136,14 @@
   <ItemGroup>
     <ClInclude Include="Invaders_app.h" />
     <ClInclude Include="board.h" />
+    <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="InvaderSprite.bmp" />
     <Image Include="ShipSprite.bmp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="Lab2.rc" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

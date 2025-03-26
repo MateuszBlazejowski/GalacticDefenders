@@ -1,6 +1,7 @@
 #include "Invaders_app.h"
 #include "board.h"
 #include <stdexcept>
+#include "resource.h"
 std::wstring const Invaders_app::s_class_name{ L"2048 Window" };
 
 bool Invaders_app::register_class() {
@@ -32,23 +33,54 @@ HWND Invaders_app::create_window(DWORD style, DWORD ex_style)
 		nullptr, nullptr, m_instance, this);
 	RECT rect;
 	GetWindowRect(m_main, &rect);
-	m_enemy = CreateWindowExW(
-		0,
-		L"STATIC",
-		nullptr,
-		WS_CHILD | WS_VISIBLE | SS_CENTER,
-		375, 75,  // position in parent
-		50, 40,//size
-		window,
-		nullptr,
-		m_instance,
-		nullptr);
+
+	const int rows = 3;
+	const int columns = 7;
+	const int space = 10;  // Space between enemies
+
+	int enemyWidth = 50;   // Width of each enemy window
+	int enemyHeight = 40;  // Height of each enemy window
+
+	for (int row = 0; row < rows; ++row) {
+		for (int col = 0; col < columns; ++col) {
+			int xPos = col * (enemyWidth + space);
+			int yPos = row * (enemyHeight + space);
+
+			HWND enemyHwnd = CreateWindowExW(
+				0,
+				L"STATIC",
+				nullptr,
+				WS_CHILD | WS_VISIBLE | SS_BITMAP,
+				xPos + 225, yPos + 75,  // position in parent
+				enemyWidth, enemyHeight, // size
+				window,
+				nullptr,
+				m_instance,
+				nullptr
+			);
+
+			// Add the newly created enemy to the list
+			enemies.push_back(enemyHwnd);
+		}
+	}
+
+	//m_enemy = CreateWindowExW(
+	//	0,
+	//	L"STATIC",
+	//	nullptr,
+	//	WS_CHILD | WS_VISIBLE | SS_BITMAP,
+	//	375, 75,  // position in parent
+	//	50, 40,//size
+	//	window,
+	//	nullptr,
+	//	m_instance,
+	//	nullptr);
 	SetWindowPos(m_enemy, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 	m_player = CreateWindowExW(
 		0,
 		L"STATIC",
 		nullptr,
-		WS_CHILD | WS_VISIBLE | SS_CENTER,
+		WS_CHILD | WS_VISIBLE | SS_BITMAP,
 		375, 525,
 		50, 50,
 		window,
@@ -135,23 +167,21 @@ LRESULT Invaders_app::window_proc(
 		return 0;
 	case WM_CTLCOLORSTATIC: // coloring of childs
 
-		if (reinterpret_cast<HWND>(lparam) == m_enemy)
-		{
-			return reinterpret_cast<INT_PTR>(m_enemy_brush);
-		}
+		//if (reinterpret_cast<HWND>(lparam) == m_enemy)
+		//{
+		//	return reinterpret_cast<INT_PTR>(m_enemy_brush);
+		//}
 		//else if (reinterpret_cast<HWND>(lparam) == m_player)
 		//{
 		//	return reinterpret_cast<INT_PTR>(m_player_brush);
 		//}
-		else
-		{
 			// Check if the control is in the bullet list
-			for (HWND bullet : m_bullets)
+		if (reinterpret_cast<HWND>(lparam) != m_player)
+		for (HWND bullet : m_bullets)
+		{
+			if (reinterpret_cast<HWND>(lparam) == bullet)
 			{
-				if (reinterpret_cast<HWND>(lparam) == bullet)
-				{
-					return reinterpret_cast<INT_PTR>(m_bullet_brush);
-				}
+				return reinterpret_cast<INT_PTR>(m_bullet_brush);
 			}
 		}
 		break;
@@ -159,30 +189,9 @@ LRESULT Invaders_app::window_proc(
 	{
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(window, &ps);
+		playerSprite(hdc);
 
-		if (player_bitmap && m_player)
-		{
-			HDC hdcMem = CreateCompatibleDC(hdc);
-			HBITMAP hOldBitmap = (HBITMAP)SelectObject(hdcMem, player_bitmap);
-
-			BITMAP bitmap;
-			GetObject(player_bitmap, sizeof(BITMAP), &bitmap);
-
-			RECT playerRect;
-			GetWindowRect(m_player, &playerRect);
-			POINT playerPos = { playerRect.left, playerRect.top };
-			ScreenToClient(m_main, &playerPos);
-
-			int spriteWidth = bitmap.bmWidth; // Assuming 3 frames in one row
-			int spriteHeight = bitmap.bmHeight;   // Full height of bitmap
-
-			// Draw only the first frame from the sprite sheet
-			BitBlt(hdc, playerPos.x- spriteWidth/3, playerPos.y, spriteWidth, spriteHeight, hdcMem, 0, 0, SRCCOPY);
-
-			SelectObject(hdcMem, hOldBitmap);
-			DeleteDC(hdcMem);
-		}
-
+		enemySPrite(hdc,m_enemy);
 		EndPaint(window, &ps);
 		return 0;
 	}
@@ -194,6 +203,11 @@ LRESULT Invaders_app::window_proc(
 		if (player_bitmap)
 		{
 			DeleteObject(player_bitmap);
+
+		}
+		if (enemy_bitmap)
+		{
+			DeleteObject(enemy_bitmap);
 		}
 		if (window == m_main)
 			PostQuitMessage(EXIT_SUCCESS);
@@ -213,11 +227,12 @@ Invaders_app::Invaders_app(HINSTANCE instance)
 {
 	register_class();
 	DWORD main_style = WS_OVERLAPPED | WS_SYSMENU |
-		WS_CAPTION | WS_MINIMIZEBOX| WS_CLIPCHILDREN;
+		WS_CAPTION | WS_MINIMIZEBOX; //| WS_CLIPCHILDREN;
 
-	player_bitmap = (HBITMAP)LoadImageW(m_instance, L"ShipSprite.bmp", IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+	player_bitmap = (HBITMAP)LoadBitmapW(m_instance, MAKEINTRESOURCE(IDB_BITMAP2));
+	enemy_bitmap = (HBITMAP)LoadBitmapW(m_instance, MAKEINTRESOURCE(IDB_BITMAP1));
 
-	m_main = create_window(main_style | WS_CLIPCHILDREN, WS_EX_LAYERED | WS_EX_COMPOSITED);
+	m_main = create_window(main_style, WS_EX_LAYERED | WS_EX_COMPOSITED);
 	SetLayeredWindowAttributes(m_main, 0, 255, LWA_ALPHA);
 	m_enemy_start_x = 375;
 
@@ -294,6 +309,14 @@ void Invaders_app::on_timer()
 	}
 	SetWindowPos(m_enemy, HWND_TOPMOST, pos.x + (m_enemy_direction * moveAmount), pos.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 
+	// updating animation
+	playerBitmapOffsetIterator++;
+	playerBitmapOffsetIterator %= 3;
+
+	enemyBitmapOffsetIterator++;
+	enemyBitmapOffsetIterator %= 4;
+
+	InvalidateRect(m_main, nullptr, TRUE);
 }
 
 void Invaders_app::OnArrows(WPARAM wparam)
@@ -314,7 +337,8 @@ void Invaders_app::OnArrows(WPARAM wparam)
 	{
 		SetWindowPos(m_player, nullptr, pos.x + moveAmount, pos.y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
 	}
-	InvalidateRect(m_player, nullptr, TRUE);
+	InvalidateRect(m_main, nullptr, TRUE);
+
 }
 
 void Invaders_app::OnSpace()
@@ -338,4 +362,36 @@ void Invaders_app::OnSpace()
 
 	SetWindowPos(bullet, HWND_BOTTOM, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 	m_bullets.push_back(bullet);
+}
+
+void Invaders_app::playerSprite(HDC hdc)
+{
+	HDC hdcMem = CreateCompatibleDC(hdc);
+	SelectObject(hdcMem, player_bitmap);
+
+	RECT playerRect;
+	GetWindowRect(m_player, &playerRect);
+	MapWindowPoints(HWND_DESKTOP, m_main, (LPPOINT)&playerRect, 2);
+
+	COLORREF  transparenColor = GetPixel(hdcMem, 0, 0);
+
+	TransparentBlt(hdc, playerRect.left, playerRect.top, 50, 50, hdcMem, 50 * playerBitmapOffsetIterator, 0, 50, 50, transparenColor);
+
+	DeleteDC(hdcMem);
+}
+
+void Invaders_app::enemySPrite(HDC hdc, HWND m_enemy)
+{
+	HDC hdcMem = CreateCompatibleDC(hdc);
+	SelectObject(hdcMem, enemy_bitmap);
+
+	RECT enemyRect;
+	GetWindowRect(m_enemy, &enemyRect);
+	MapWindowPoints(HWND_DESKTOP, m_main, (LPPOINT)&enemyRect, 2);
+
+	COLORREF  transparenColor = GetPixel(hdcMem, 0, 0);
+
+	TransparentBlt(hdc, enemyRect.left, enemyRect.top, 50, 40, hdcMem, 50 * enemyBitmapOffsetIterator, 0, 50, 40, transparenColor);
+
+	DeleteDC(hdcMem);
 }

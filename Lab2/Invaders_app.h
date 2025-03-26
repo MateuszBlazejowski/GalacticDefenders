@@ -16,7 +16,10 @@ private:
 		WPARAM wparam, LPARAM lparam);
 	HWND create_window(DWORD style, DWORD ex_style = 0);
 	HINSTANCE m_instance;
-	HWND m_main, m_player, m_enemy;
+
+	HWND m_main, m_player;// , m_enemy;
+	std::vector<HWND> enemies; 
+
 	board m_board;
 	POINT m_screen_size;
 	HBRUSH m_enemy_brush;
@@ -24,6 +27,7 @@ private:
 	HBRUSH m_bullet_brush;
 
 	HBITMAP player_bitmap;
+	HBITMAP enemy_bitmap;
 
 	//movement 
 	int m_enemy_direction; // 1 for right, -1 for left
@@ -38,7 +42,13 @@ private:
 	static constexpr UINT TIMER_INTERVAL = 50;
 	void on_timer();
 
+	// painting
 	void update_transparency(int a);
+	void playerSprite(HDC hdc);
+	void enemySPrite(HDC hdc, HWND m_enemy);
+	int enemyBitmapOffsetIterator = 0;
+	int playerBitmapOffsetIterator = 0;
+
 public:
 	Invaders_app(HINSTANCE instance);
 	int run(int show_command);
