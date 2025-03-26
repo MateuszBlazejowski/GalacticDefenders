@@ -1,6 +1,7 @@
 #pragma once
 #include <windows.h>
 #include "board.h"
+#include "Enemy.h"
 #include <string>
 #include <list>
 class Invaders_app
@@ -18,7 +19,7 @@ private:
 	HINSTANCE m_instance;
 
 	HWND m_main, m_player;// , m_enemy;
-	std::vector<HWND> enemies; 
+	std::vector<Enemy> enemies;
 
 	board m_board;
 	POINT m_screen_size;
@@ -40,12 +41,15 @@ private:
 	//timer
 	static constexpr UINT_PTR TIMER_ID = 1;
 	static constexpr UINT TIMER_INTERVAL = 50;
+
+	//static constexpr UINT_PTR TIMER_ID = 2;
+	//static constexpr UINT TIMER_INTERVAL = 100;
 	void on_timer();
 
 	// painting
 	void update_transparency(int a);
 	void playerSprite(HDC hdc);
-	void enemySPrite(HDC hdc, HWND m_enemy);
+	void enemySPrite(HDC hdc);
 	int enemyBitmapOffsetIterator = 0;
 	int playerBitmapOffsetIterator = 0;
 
