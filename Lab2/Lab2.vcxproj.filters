@@ -35,12 +35,24 @@
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Enemy.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Image Include="InvaderSprite.bmp">
       <Filter>Resource Files</Filter>
     </Image>
     <Image Include="ShipSprite.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="sky1.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="lena.bmp">
+      <Filter>Resource Files</Filter>
+    </Image>
+    <Image Include="sky2.bmp">
       <Filter>Resource Files</Filter>
     </Image>
   </ItemGroup>

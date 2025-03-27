@@ -1,10 +1,16 @@
 #include "Invaders_app.h"
 #include "board.h"
+#include <dwmapi.h>
 #include <stdexcept>
+#include <iostream>
 #include "resource.h"
+#include <commdlg.h>
+#include <stdio.h>
 
+#define CONFIG_FILE_PATH L"C:\\Users\\matbl\\Desktop\\config.ini" // important, change it to your ini file path!!!! 
 
 std::wstring const Invaders_app::s_class_name{ L"Space Invaders" };
+INT_PTR CALLBACK ScoreDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
 
 Invaders_app::Invaders_app(HINSTANCE instance)
 	: m_instance{ instance }, m_main{},
@@ -13,16 +19,22 @@ Invaders_app::Invaders_app(HINSTANCE instance)
 	m_enemy_brush{ CreateSolidBrush(RGB(70, 70, 255)) }
 	, m_player_brush{ CreateSolidBrush(RGB(255, 0, 0)) }
 	, m_bullet_brush{ CreateSolidBrush(RGB(0, 0, 0)) },
+
 	m_enemy_direction{ 1 }
 {
+
+	loadConfig(); 
+
 	register_class();
-	DWORD main_style = WS_OVERLAPPED | WS_SYSMENU |
+	main_style = WS_OVERLAPPED | WS_SYSMENU |
 		WS_CAPTION | WS_MINIMIZEBOX;
+	ex_style = WS_OVERLAPPED | WS_SYSMENU | WS_EX_TOPMOST | WS_MINIMIZEBOX;// | WS_EX_COMPOSITED ??? maybe
+
 
 	player_bitmap = (HBITMAP)LoadBitmapW(m_instance, MAKEINTRESOURCE(IDB_BITMAP2));
 	enemy_bitmap = (HBITMAP)LoadBitmapW(m_instance, MAKEINTRESOURCE(IDB_BITMAP1));
 
-	m_main = create_window(main_style, WS_OVERLAPPED | WS_SYSMENU | WS_EX_TOPMOST | WS_MINIMIZEBOX | WS_EX_COMPOSITED);
+	m_main = create_window(main_style,ex_style); 
 
 	SetWindowLongW(m_main, GWL_EXSTYLE, GetWindowLongW(m_main, GWL_EXSTYLE | WS_EX_LAYERED));
 	SetLayeredWindowAttributes(m_main, 0, 255, LWA_ALPHA);
@@ -40,8 +52,9 @@ bool Invaders_app::register_class() {
 	.hInstance = m_instance,
 	.hCursor = LoadCursorW(nullptr, L"IDC_ARROW"),
 	.hbrBackground =
-CreateSolidBrush(RGB(255, 255, 255)),
-	.lpszClassName = s_class_name.c_str()
+CreateSolidBrush(RGB(255, 255 , 255)),
+	.lpszMenuName = MAKEINTRESOURCEW(IDR_MENU1),
+	.lpszClassName = s_class_name.c_str(),
 	};
 
 	return RegisterClassExW(&desc) != 0;
@@ -49,14 +62,14 @@ CreateSolidBrush(RGB(255, 255, 255)),
 
 HWND Invaders_app::create_window(DWORD style, DWORD ex_style)
 {
-	RECT size{ 0, 0, board::width, board::height };
+	RECT size{ 0, 0, wWidth[window_size], wHeight[window_size] };
 	AdjustWindowRectEx(&size, style, true, ex_style);
 
 	HWND window = CreateWindowExW(
 		ex_style, s_class_name.c_str(),
 		L"Space Invaders",
 		style,
-		m_screen_size.x / 2 - board::width / 2, m_screen_size.y / 2 - board::height / 2,
+		m_screen_size.x / 2 - wWidth[window_size]/2, m_screen_size.y / 2 - wHeight[window_size]/2,
 		size.right - size.left, size.bottom - size.top,
 		nullptr, nullptr, m_instance, this);
 
@@ -64,53 +77,6 @@ HWND Invaders_app::create_window(DWORD style, DWORD ex_style)
 
 	RECT rect;
 	GetWindowRect(m_main, &rect);
-
-	const int rows = 3;
-	const int columns = 7;
-	const int space = 10;  // Space between enemies
-
-	int enemyWidth = 50;   // Width of each enemy window
-	int enemyHeight = 40;  // Height of each enemy window
-
-	for (int row = 0; row < rows; ++row) {
-		for (int col = 0; col < columns; ++col) {
-			int xPos = col * (enemyWidth + space) + 225 - 30;
-			int yPos = row * (enemyHeight + space) + 75;
-
-			HWND enemyHwnd = CreateWindowExW(
-				0,
-				L"STATIC",
-				nullptr,
-				WS_CHILD | WS_VISIBLE | SS_BITMAP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
-				xPos, yPos,  // position in parent
-				enemyWidth, enemyHeight, // size
-				window,
-				nullptr,
-				m_instance,
-				nullptr
-			);
-
-			// Add the newly created enemy to the list
-			enemies.push_back({ enemyHwnd, xPos, yPos });
-		}
-	}
-
-	//m_enemy = CreateWindowExW(
-	//	0,
-	//	L"STATIC",
-	//	nullptr,
-	//	WS_CHILD | WS_VISIBLE | SS_BITMAP,
-	//	375, 75,  // position in parent
-	//	50, 40,//size
-	//	window,
-	//	nullptr,
-	//	m_instance,
-	//	nullptr);
-
-	for (size_t i = 0; i < enemies.size(); ++i) {
-		// Apply SetWindowPos for each enemy
-		SetWindowPos(enemies[i].hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
-	}
 
 	m_player = CreateWindowExW(
 		0,
@@ -124,6 +90,7 @@ HWND Invaders_app::create_window(DWORD style, DWORD ex_style)
 		m_instance,
 		nullptr);
 
+	startNewGame(window); 
 	return window;
 }
 
@@ -229,22 +196,149 @@ LRESULT Invaders_app::window_proc(
 	{
 		PAINTSTRUCT ps;
 		HDC hdc = BeginPaint(window, &ps);
+
+		if (background_bitmap != NULL && backgroundIsBitmap)
+		{
+			ApplyBackgroundBitmap(window, hdc);
+		}
+		else
+		{
+			HBRUSH hBrush = CreateSolidBrush(bgColor);
+			FillRect(hdc, &ps.rcPaint, hBrush);
+			DeleteObject(hBrush);
+		}
+
 		playerSprite(hdc);
-		//for (size_t i = 0; i < enemies.size(); ++i) {
 		enemySPrite(hdc);
-		//}
+
+		DisplayScore(m_main);
+
 		EndPaint(window, &ps);
 		return 0;
 	}
+	case WM_COMMAND:
+		switch (LOWORD(wparam))
+		{
+		case ID_OPTIONS_SMALL:
+			// Handle Small option
+			currentSizeOption = ID_OPTIONS_SMALL;
+			window_size = Small;
+			startNewGame(window);
+			break;
+		case ID_OPTIONS_MEDIUM:
+			// Handle Medium option
+			currentSizeOption = ID_OPTIONS_MEDIUM;
+			window_size = Medium;
+			startNewGame(window);
+			break;
+		case ID_OPTIONS_LARGE:
+			// Handle Large option
+			currentSizeOption = ID_OPTIONS_LARGE;
+			window_size = Large;
+			startNewGame(window);
+			break;
+
+		case ID_BACKGROUND_SOLID:
+
+			// Handle Solid color option
+			currentBackgroundOption = ID_BACKGROUND_SOLID;
+			CHOOSECOLOR cc;
+			static COLORREF acrCustClr[16];
+			ZeroMemory(&cc, sizeof(cc));
+			cc.lStructSize = sizeof(cc);
+			cc.hwndOwner = window;
+			cc.lpCustColors = (LPDWORD)acrCustClr;
+			cc.rgbResult = RGB(255, 255, 255);
+			cc.Flags = CC_FULLOPEN | CC_RGBINIT;
+
+			if (ChooseColor(&cc) == TRUE)
+			{
+				bgColor = cc.rgbResult;
+				backgroundIsBitmap = false;
+				InvalidateRect(window, NULL, TRUE);
+			}
+			break;
+
+		case ID_BACKGROUND_IMAGE:
+			// Handle Image option
+			// Assume ID_OPEN is a valid menu or button ID
+
+				// Create an OPENFILENAME structure and initialize it
+			OPENFILENAME ofn;       // Common dialog box structure
+			WCHAR szFile[260];       // Buffer to store the selected file name
+
+			// Initialize the OPENFILENAME structure to zero
+			ZeroMemory(&ofn, sizeof(ofn));
+			ofn.lStructSize = sizeof(ofn);
+			ofn.hwndOwner = window;
+			ofn.lpstrFile = szFile;
+			ofn.nMaxFile = sizeof(szFile);
+			ofn.lpstrFilter = L"Image Files\0*.BMP\0All Files\0*.*\0";
+			ofn.nFilterIndex = 1;
+			ofn.lpstrFile[0] = '\0';
+			ofn.nMaxFile = sizeof(szFile);
+			ofn.lpstrFileTitle = NULL;
+			ofn.nMaxFileTitle = 0;
+			ofn.lpstrInitialDir = NULL;
+			ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+			// Display the Open File dialog
+			if (GetOpenFileName(&ofn) == TRUE)
+			{
+				wcscpy_s(bitmapFilePath, MAX_PATH, ofn.lpstrFile);
+				// The user selected a file, process the file path
+				background_bitmap = (HBITMAP)LoadImageW(
+					NULL,
+					ofn.lpstrFile,
+					IMAGE_BITMAP,
+					0, 0, // Load the image at its original size
+					LR_LOADFROMFILE | LR_CREATEDIBSECTION);
+				backgroundIsBitmap = true;
+				InvalidateRect(window, NULL, TRUE);
+
+			}
+			break;
+		case ID_BACKGROUND_CENTER:
+			// Handle Center option
+			bg_mode = center;
+			currentBackgroundOption = ID_BACKGROUND_CENTER;
+			break;
+		case ID_BACKGROUND_FILL:
+			// Handle Fill option
+			bg_mode = fill;
+			currentBackgroundOption = ID_BACKGROUND_FILL;
+			break;
+		case ID_BACKGROUND_TILE:
+			// Handle Tile option
+			bg_mode = tile;
+			currentBackgroundOption = ID_BACKGROUND_TILE;
+			break;
+		case ID_BACKGROUND_FIT:
+			// Handle Fit option
+			bg_mode = fit;
+			currentBackgroundOption = ID_BACKGROUND_FIT;
+			break;
+		case ID_GAME_NEWGAME:
+			startNewGame(window); 
+			break;
+		case ID_HELP_ABOUT:
+			// Handle About option
+			MessageBox(window, L"BEST GAME EVER\nnothing to explain, everything is obvious\nand perfect", L"About", MB_OK);
+			break;
+		default:
+			return DefWindowProc(window, message, wparam, lparam);
+		}
+		UpdateMenuCheck(GetMenu(window), currentSizeOption, sizeOptions);
+		UpdateMenuCheck(GetMenu(window), currentBackgroundOption, backgroundOptions);
+		break;
 
 	case WM_CLOSE:
+		updateConfig();
 		DestroyWindow(window);
 		return 0;
 	case WM_DESTROY:
 		if (player_bitmap)
 		{
 			DeleteObject(player_bitmap);
-
 		}
 		if (enemy_bitmap)
 		{
@@ -266,12 +360,19 @@ int Invaders_app::run(int show_command)
 	SetTimer(m_main, TIMER_ID, TIMER_INTERVAL, nullptr);
 	MSG msg{};
 	BOOL result = TRUE;
+
+	HACCEL shortcuts = LoadAcceleratorsW(m_instance,
+		MAKEINTRESOURCEW(IDR_ACCELERATOR1));
 	while ((result = GetMessageW(&msg, nullptr, 0, 0)) != 0)
 	{
 		if (result == -1)
 			return EXIT_FAILURE;
-		TranslateMessage(&msg);
-		DispatchMessageW(&msg);
+		if (!TranslateAcceleratorW(
+			msg.hwnd, shortcuts, &msg))
+		{
+			TranslateMessage(&msg);
+			DispatchMessageW(&msg);
+		}
 	}
 	return EXIT_SUCCESS;
 }
@@ -283,26 +384,6 @@ void Invaders_app::update_transparency(int a)
 
 void Invaders_app::on_timer()
 {
-	// BULLETS: 
-	for (auto it = m_bullets.begin(); it != m_bullets.end();)
-	{
-		HWND bullet = *it;
-		RECT bulletRect;
-		GetWindowRect(bullet, &bulletRect);
-		POINT bulletPos = { bulletRect.left, bulletRect.top };
-		ScreenToClient(m_main, &bulletPos);
-
-		if (bulletPos.y <= 0) // If bullet reaches the top, destroy it
-		{
-			DestroyWindow(bullet);
-			it = m_bullets.erase(it);
-		}
-		else
-		{
-			SetWindowPos(bullet, NULL, bulletPos.x, bulletPos.y - 15, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOREDRAW);
-			++it;
-		}
-	}
 
 	// enemy 
 	RECT rect;
@@ -338,6 +419,52 @@ void Invaders_app::on_timer()
 	}
 
 
+	// BULLETS: 
+	for (auto it = m_bullets.begin(); it != m_bullets.end();)
+	{
+		HWND bullet = *it;
+		RECT bulletRect;
+		GetWindowRect(bullet, &bulletRect);
+		POINT bulletPos = { bulletRect.left, bulletRect.top };
+		ScreenToClient(m_main, &bulletPos);
+
+		if (bulletPos.y <= 0) // If bullet reaches the top, destroy it
+		{
+			DestroyWindow(bullet);
+			it = m_bullets.erase(it);
+			continue;
+		}
+
+		bool ifRemoved = false;
+		RECT enemy_position, inter;
+
+		for (int j = 0; j < enemies.size(); j++) {
+			GetWindowRect(enemies[j].hwnd, &enemy_position);
+			if (IntersectRect(&inter, &bulletRect, &enemy_position)) {
+				DestroyWindow(enemies[j].hwnd);
+				enemies.erase(enemies.begin() + j);
+				--j;
+				if (enemies.size() == 0) KillTimer(m_main, 0);
+				gameScore++;
+				DestroyWindow(*it);
+				it = m_bullets.erase(it);
+				ifRemoved = true;
+				break;
+			}
+		}
+
+		if (!ifRemoved) { // Check if the bullet wasn't erased
+			SetWindowPos(bullet, NULL, bulletPos.x, bulletPos.y - 15, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOREDRAW);
+			++it; // Only increment the iterator if the bullet was not erased
+		}
+	}
+
+	if (enemies.empty())
+	{
+
+		startNewGame(m_main);
+	}
+
 	// updating animation
 	playerBitmapOffsetIterator++;
 	playerBitmapOffsetIterator %= 3;
@@ -362,7 +489,7 @@ void Invaders_app::OnArrows(WPARAM wparam)
 	{
 		SetWindowPos(m_player, nullptr, pos.x - moveAmount, pos.y, 50, 50, SWP_NOSIZE | SWP_NOZORDER);
 	}
-	else if (wparam == VK_RIGHT && pos.x + (rect.right - rect.left + 10) < board::width)
+	else if (wparam == VK_RIGHT && pos.x + (rect.right - rect.left + 10) < wWidth[window_size])
 	{
 		SetWindowPos(m_player, nullptr, pos.x + moveAmount, pos.y, 50, 50, SWP_NOSIZE | SWP_NOZORDER);
 	}
@@ -418,3 +545,286 @@ void Invaders_app::enemySPrite(HDC hdc)
 	}
 	DeleteDC(hdcMem);
 }
+
+void Invaders_app::DisplayScore(HWND hwnd) {
+	// Retrieve the device context (DC) for the window
+	HDC hdc = GetDC(hwnd);
+	// Create and set up the font
+	HFONT hFont = CreateFont(
+		30,               // Font height
+		0,                // Font width (0 uses the default width)
+		0,                // Angle of rotation
+		0,                // Angle of rotation
+		FW_BOLD,          // Font weight (normal weight)
+		FALSE,            // Italic
+		FALSE,            // Underline
+		FALSE,            // Strikeout
+		DEFAULT_CHARSET,  // Character set
+		OUT_DEFAULT_PRECIS, // Output precision
+		CLIP_DEFAULT_PRECIS, // Clipping precision
+		DEFAULT_QUALITY,  // Output quality
+		FF_DONTCARE,      // Font family
+		L"Lucida Console" // Font name
+	);
+	// Select the font into the DC
+	HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
+	// Prepare the score text
+	std::wstring scoreText = L"Score: " + std::to_wstring(gameScore);
+	// Set text color and background mode
+	SetTextColor(hdc, RGB(0, 0, 0)); // Black color
+	SetBkMode(hdc, TRANSPARENT);      // Transparent background
+	// Prepare the client area for the text positioning
+	RECT clientRect;
+	GetClientRect(hwnd, &clientRect);  // Get the client area dimensions
+	clientRect.top = clientRect.bottom - 45; // Position the text near the bottom
+	clientRect.left = 15;  // Padding from the left
+	// Draw the text in the specified area
+	DrawTextW(hdc, scoreText.c_str(), -1, &clientRect, DT_LEFT | DT_NOCLIP);
+	// Clean up by restoring the old font and releasing the device context
+	SelectObject(hdc, oldFont);  // Restore the previous font
+	DeleteObject(hFont);         // Delete the font object
+	ReleaseDC(hwnd, hdc);        // Release the DC
+}
+
+void Invaders_app::UpdateMenuCheck(HMENU hMenu, int checkedItemID, const std::vector<int>& MenuItems)
+{
+	// Iterate through menu items and check/uncheck them
+	for (int itemID : MenuItems)
+	{
+		if (itemID == checkedItemID)
+		{
+			CheckMenuItem(hMenu, itemID, MF_CHECKED);
+		}
+		else
+		{
+			CheckMenuItem(hMenu, itemID, MF_UNCHECKED);
+		}
+	}
+}
+
+void Invaders_app::ApplyBackgroundBitmap(HWND window, HDC hdc)
+{
+	HDC hdcMem = CreateCompatibleDC(hdc);
+	SelectObject(hdcMem, background_bitmap);
+
+	// Get the size of the window (client area)
+	RECT clientRect;
+	GetClientRect(window, &clientRect);
+
+	BITMAP bitmapInfo;
+	GetObject(background_bitmap, sizeof(bitmapInfo), &bitmapInfo);
+
+
+	float widthRatio = (float)clientRect.right / bitmapInfo.bmWidth;; // for fitting 
+	float heightRatio = (float)clientRect.bottom / bitmapInfo.bmHeight; // for fitting 
+	float scaleRatio = std::min(widthRatio, heightRatio); // for fitting 
+
+
+
+	switch (bg_mode)
+	{
+	case center:
+		StretchBlt(
+			hdc,
+			(clientRect.right - bitmapInfo.bmWidth) / 2,
+			(clientRect.bottom - bitmapInfo.bmHeight) / 2, 
+			bitmapInfo.bmWidth, bitmapInfo.bmHeight, 
+			hdcMem, 0, 0, bitmapInfo.bmWidth, bitmapInfo.bmHeight,      // Source coordinates and size
+			SRCCOPY // Copy the source directly to the destination
+		);
+		break;
+	case fill:
+		StretchBlt(
+			hdc,
+			0, 0, clientRect.right, clientRect.bottom,  // Destination coordinates and size (fill entire window)
+			hdcMem, 0, 0, bitmapInfo.bmWidth, bitmapInfo.bmHeight,      // Source coordinates and size (original image size)
+			SRCCOPY // Copy the source directly to the destination
+		);
+		break;
+	case fit:
+		// Stretch the image to fit while maintaining the aspect ratio
+		StretchBlt(
+			hdc,
+			(clientRect.right - (int)(bitmapInfo.bmWidth * scaleRatio)) / 2, 
+			(clientRect.bottom - (int)(bitmapInfo.bmHeight * scaleRatio)) / 2,
+			(int)(bitmapInfo.bmWidth * scaleRatio),
+			(int)(bitmapInfo.bmHeight * scaleRatio),  // Destination coordinates and size (centered)
+			hdcMem, 0, 0, bitmapInfo.bmWidth, bitmapInfo.bmHeight,  // Source coordinates and size (original image size)
+			SRCCOPY  // Copy the source directly to the destination
+		);
+
+		break;
+	case tile:
+		for (int y = 0; y < clientRect.bottom; y += bitmapInfo.bmHeight) {
+			for (int x = 0; x < clientRect.right; x += bitmapInfo.bmWidth) {
+				BitBlt(hdc, x, y, bitmapInfo.bmWidth, bitmapInfo.bmHeight, hdcMem, 0, 0, SRCCOPY);
+			}
+		}
+		StretchBlt(
+			hdc, 0, 0, clientRect.right, clientRect.bottom,
+			hdcMem, 0, 0,  // Source coordinates
+			clientRect.right, clientRect.bottom, // Source size
+			SRCCOPY // Copy the source directly to the destination
+		);
+		break;
+	default:
+		break;
+	}
+
+	DeleteDC(hdcMem);
+}
+
+INT_PTR CALLBACK ScoreDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam) {
+	static int* pScore = nullptr;
+
+	switch (uMsg) {
+	case WM_INITDIALOG:
+		pScore = (int*)lParam;
+		// Set the score text
+		SetDlgItemInt(hwndDlg, IDC_SCORE, *pScore, FALSE);
+		return TRUE;
+
+	case WM_COMMAND:
+		if (LOWORD(wParam) == IDOK) {
+			WCHAR playerName[100];
+			GetDlgItemText(hwndDlg, IDC_NAME, playerName, 100);
+			// Process playerName here (e.g., save or display it)
+			EndDialog(hwndDlg, IDOK);
+			return TRUE;
+		}
+		break;
+	}
+	return FALSE;
+}
+
+void Invaders_app::startNewGame(HWND window)
+{ 
+	KillTimer(window, TIMER_ID);
+	
+	if(oldGame)
+	DialogBoxParamW(m_instance, MAKEINTRESOURCE(IDD_SCORE_DIALOG), m_main, ScoreDialogProc, (LPARAM)&gameScore);
+
+	oldGame = true;
+	for (int i = 0; i < enemies.size(); i++)
+		DestroyWindow(enemies[i].hwnd);
+	enemies.clear();
+
+	for (int i = 0; i < m_bullets.size(); i++)
+		DestroyWindow(m_bullets[i]);
+	m_bullets.clear();
+
+	int newWidth = wWidth[window_size];
+	int newHeight = wHeight[window_size];
+	
+	RECT size{ 0, 0, wWidth[window_size], wHeight[window_size] };
+	AdjustWindowRectEx(&size, main_style, true, ex_style);
+
+	RECT currentRect;
+	GetWindowRect(window, &currentRect);
+
+	int newX = currentRect.left;
+	int newY = currentRect.top;
+
+	SetWindowPos(
+		window,
+		HWND_TOP,  // Keep the window in the same Z-order
+		newX,      // Current X position
+		newY,      // Current Y position
+		size.right - size.left,  // New width, considering the border size
+		size.bottom - size.top, // New height, considering the border size
+		SWP_NOZORDER | SWP_NOACTIVATE  // Do not change Z-order or activate the window
+	);
+
+	// enemies: 
+	gameScore = 0; 
+	int columns = enemyGridWidth[window_size];
+	int rows = enemyGridHeight[window_size];
+	int startingX = ((newWidth / 2) - columns * (enemyWidth + space) / 2);
+
+	for (int row = 0; row < rows; ++row) {
+		for (int col = 0; col < columns; ++col) {
+			int xPos = col * (enemyWidth + space) + startingX;
+			int yPos = row * (enemyHeight + space) + 75;
+
+			HWND enemyHwnd = CreateWindowExW(
+				0,
+				L"STATIC",
+				nullptr,
+				WS_CHILD | WS_VISIBLE | SS_BITMAP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+				xPos, yPos,  // position in parent
+				enemyWidth, enemyHeight, // size
+				window,
+				nullptr,
+				m_instance,
+				nullptr
+			);
+
+			// Add the newly created enemy to the list
+			enemies.push_back({ enemyHwnd, xPos, yPos });
+		}
+	}
+
+	for (size_t i = 0; i < enemies.size(); ++i) {
+		SetWindowPos(enemies[i].hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+	}
+
+	SetWindowPos(m_player, HWND_TOP, (newWidth / 2) - 25 , newHeight - 75 , 0,0, SWP_NOSIZE);
+
+	SetTimer(m_main, TIMER_ID, TIMER_INTERVAL, nullptr);
+}
+
+void Invaders_app::loadConfig() 
+{
+	int bg = GetPrivateProfileInt(L"Settings", L"bg_mode", 0, CONFIG_FILE_PATH);
+	bg_mode = (bgMode)bg;
+	int ws = GetPrivateProfileInt(L"Settings", L"window_size", 0, CONFIG_FILE_PATH);
+	window_size = (wSize)ws;
+	int  bgIsBitmap = GetPrivateProfileInt(L"Settings", L"is_background_bitmap", 0, CONFIG_FILE_PATH);
+	backgroundIsBitmap = (bool)bgIsBitmap;
+	 
+	wchar_t buffer[256];
+
+	int R, G, B;
+	GetPrivateProfileString(L"Settings", L"last_solid_brush", L"0,0,0", buffer, 256, CONFIG_FILE_PATH);
+	swscanf_s(buffer, L"%d,%d,%d", &R,&G,&B);
+	bgColor = RGB(R, G, B);
+
+	GetPrivateProfileString(L"Settings", L"last_bitmap_name", L"", bitmapFilePath, MAX_PATH, CONFIG_FILE_PATH);
+	background_bitmap = (HBITMAP)LoadImage(NULL, bitmapFilePath, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
+
+	//reading users 
+	//wchar_t user0[10]; 
+	//int score;
+	//GetPrivateProfileString(L"usersScores", L"user0", L"0", buffer, 256, CONFIG_FILE_PATH);
+	//swscanf_s(buffer, L"%d,%s", &score, &user0);
+
+}
+
+void Invaders_app::updateConfig() {
+	// Save bg_mode (converted to integer)
+	int bg = (int)bg_mode;  // assuming bg_mode is of type bgMode enum
+	WritePrivateProfileString(L"Settings", L"bg_mode", std::to_wstring(bg).c_str(), CONFIG_FILE_PATH);
+
+	// Save window_size (converted to integer)
+	int ws = (int)window_size;  // assuming window_size is of type wSize enum
+	WritePrivateProfileString(L"Settings", L"window_size", std::to_wstring(ws).c_str(), CONFIG_FILE_PATH);
+
+	// Save backgroundIsBitmap (convert to integer for boolean)
+	int bgIsBitmap = (backgroundIsBitmap) ? 1 : 0;
+	WritePrivateProfileString(L"Settings", L"is_background_bitmap", std::to_wstring(bgIsBitmap).c_str(), CONFIG_FILE_PATH);
+
+	// Save bgColor (RGB values)
+	int R = GetRValue(bgColor);
+	int G = GetGValue(bgColor);
+	int B = GetBValue(bgColor);
+	wchar_t colorBuffer[256];
+	swprintf_s(colorBuffer, 256, L"%d,%d,%d", R, G, B);
+	WritePrivateProfileString(L"Settings", L"last_solid_brush", colorBuffer, CONFIG_FILE_PATH);
+
+	// Save the last bitmap name
+	wchar_t bmName[MAX_PATH];
+	wcscpy_s(bmName, background_bitmap ? bitmapFilePath : L"");
+	WritePrivateProfileString(L"Settings", L"last_bitmap_name", bmName, CONFIG_FILE_PATH);
+}
+
+

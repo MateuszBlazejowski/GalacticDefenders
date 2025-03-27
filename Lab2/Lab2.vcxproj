@@ -141,7 +141,10 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="InvaderSprite.bmp" />
+    <Image Include="lena.bmp" />
     <Image Include="ShipSprite.bmp" />
+    <Image Include="sky1.bmp" />
+    <Image Include="sky2.bmp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Lab2.rc" />
