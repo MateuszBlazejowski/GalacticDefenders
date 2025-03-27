@@ -13,6 +13,10 @@
 #define IDB_BITMAP4                     113
 #define IDC_SCORE                       1001
 #define IDC_NAME                        1002
+#define IDC_SCORE_1                     1003
+#define IDC_SCORE_2                     1004
+#define IDC_SCORE_3                     1005
+#define IDC_SCORE_4                     1006
 #define ID_GAME_NEWGAME                 40001
 #define ID_OPTIONS_SMALL                40002
 #define ID_OPTIONS_MEDIUM               40003

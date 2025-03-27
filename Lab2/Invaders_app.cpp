@@ -23,18 +23,18 @@ Invaders_app::Invaders_app(HINSTANCE instance)
 	m_enemy_direction{ 1 }
 {
 
-	loadConfig(); 
+	loadConfig();
 
 	register_class();
 	main_style = WS_OVERLAPPED | WS_SYSMENU |
 		WS_CAPTION | WS_MINIMIZEBOX;
-	ex_style = WS_OVERLAPPED | WS_SYSMENU | WS_EX_TOPMOST | WS_MINIMIZEBOX;// | WS_EX_COMPOSITED ??? maybe
+	ex_style = WS_SYSMENU | WS_EX_TOPMOST | WS_EX_LAYERED;// | WS_EX_COMPOSITED ??? maybe
 
 
 	player_bitmap = (HBITMAP)LoadBitmapW(m_instance, MAKEINTRESOURCE(IDB_BITMAP2));
 	enemy_bitmap = (HBITMAP)LoadBitmapW(m_instance, MAKEINTRESOURCE(IDB_BITMAP1));
 
-	m_main = create_window(main_style,ex_style); 
+	m_main = create_window(main_style, ex_style);
 
 	SetWindowLongW(m_main, GWL_EXSTYLE, GetWindowLongW(m_main, GWL_EXSTYLE | WS_EX_LAYERED));
 	SetLayeredWindowAttributes(m_main, 0, 255, LWA_ALPHA);
@@ -69,7 +69,7 @@ HWND Invaders_app::create_window(DWORD style, DWORD ex_style)
 		ex_style, s_class_name.c_str(),
 		L"Space Invaders",
 		style,
-		m_screen_size.x / 2 - wWidth[window_size]/2, m_screen_size.y / 2 - wHeight[window_size]/2,
+		m_screen_size.x / 2 - wWidth[window_size] / 2, m_screen_size.y / 2 - wHeight[window_size] / 2,
 		size.right - size.left, size.bottom - size.top,
 		nullptr, nullptr, m_instance, this);
 
@@ -90,7 +90,7 @@ HWND Invaders_app::create_window(DWORD style, DWORD ex_style)
 		m_instance,
 		nullptr);
 
-	startNewGame(window); 
+	startNewGame(window);
 	return window;
 }
 
@@ -216,6 +216,19 @@ LRESULT Invaders_app::window_proc(
 		EndPaint(window, &ps);
 		return 0;
 	}
+	//case WM_ERASEBKGND:
+	//{
+	//	if (!backgroundIsBitmap)
+	//	{
+	//		HDC hdc = reinterpret_cast<HDC>(wparam);
+	//		RECT rect;
+	//		GetClientRect(window, &rect);
+	//		HBRUSH hBrush = CreateSolidBrush(bgColor);
+	//		FillRect(hdc, &rect, hBrush);
+	//	}
+
+	//	return 1; //confirm erase
+	//}
 	case WM_COMMAND:
 		switch (LOWORD(wparam))
 		{
@@ -318,7 +331,7 @@ LRESULT Invaders_app::window_proc(
 			currentBackgroundOption = ID_BACKGROUND_FIT;
 			break;
 		case ID_GAME_NEWGAME:
-			startNewGame(window); 
+			startNewGame(window);
 			break;
 		case ID_HELP_ABOUT:
 			// Handle About option
@@ -348,6 +361,7 @@ LRESULT Invaders_app::window_proc(
 			PostQuitMessage(EXIT_SUCCESS);
 		return 0;
 	}
+
 	return DefWindowProcW(window, message, wparam, lparam);
 }
 
@@ -472,7 +486,8 @@ void Invaders_app::on_timer()
 	enemyBitmapOffsetIterator++;
 	enemyBitmapOffsetIterator %= 4;
 
-	InvalidateRect(m_main, nullptr, TRUE);
+	//InvalidateRect(m_main, nullptr, TRUE);
+	RedrawWindow(m_main, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE);
 }
 
 void Invaders_app::OnArrows(WPARAM wparam)
@@ -493,7 +508,8 @@ void Invaders_app::OnArrows(WPARAM wparam)
 	{
 		SetWindowPos(m_player, nullptr, pos.x + moveAmount, pos.y, 50, 50, SWP_NOSIZE | SWP_NOZORDER);
 	}
-	InvalidateRect(m_main, nullptr, TRUE);
+	//InvalidateRect(m_main, nullptr, TRUE);
+	RedrawWindow(m_main, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE);
 }
 
 void Invaders_app::OnSpace()
@@ -507,7 +523,7 @@ void Invaders_app::OnSpace()
 		0,
 		L"STATIC",
 		nullptr,
-		WS_CHILD | WS_VISIBLE | SS_CENTER | WS_CLIPSIBLINGS | WS_CLIPCHILDREN,
+		WS_CHILD | WS_VISIBLE | WS_CLIPSIBLINGS,
 		pos.x, pos.y,
 		5, 15,
 		m_main,
@@ -627,8 +643,8 @@ void Invaders_app::ApplyBackgroundBitmap(HWND window, HDC hdc)
 		StretchBlt(
 			hdc,
 			(clientRect.right - bitmapInfo.bmWidth) / 2,
-			(clientRect.bottom - bitmapInfo.bmHeight) / 2, 
-			bitmapInfo.bmWidth, bitmapInfo.bmHeight, 
+			(clientRect.bottom - bitmapInfo.bmHeight) / 2,
+			bitmapInfo.bmWidth, bitmapInfo.bmHeight,
 			hdcMem, 0, 0, bitmapInfo.bmWidth, bitmapInfo.bmHeight,      // Source coordinates and size
 			SRCCOPY // Copy the source directly to the destination
 		);
@@ -645,7 +661,7 @@ void Invaders_app::ApplyBackgroundBitmap(HWND window, HDC hdc)
 		// Stretch the image to fit while maintaining the aspect ratio
 		StretchBlt(
 			hdc,
-			(clientRect.right - (int)(bitmapInfo.bmWidth * scaleRatio)) / 2, 
+			(clientRect.right - (int)(bitmapInfo.bmWidth * scaleRatio)) / 2,
 			(clientRect.bottom - (int)(bitmapInfo.bmHeight * scaleRatio)) / 2,
 			(int)(bitmapInfo.bmWidth * scaleRatio),
 			(int)(bitmapInfo.bmHeight * scaleRatio),  // Destination coordinates and size (centered)
@@ -675,20 +691,33 @@ void Invaders_app::ApplyBackgroundBitmap(HWND window, HDC hdc)
 }
 
 INT_PTR CALLBACK ScoreDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam) {
-	static int* pScore = nullptr;
+	static Invaders_app* pApp = nullptr;
+	std::wstring scoreText;
 
 	switch (uMsg) {
 	case WM_INITDIALOG:
-		pScore = (int*)lParam;
+		pApp = (Invaders_app*)lParam;
 		// Set the score text
-		SetDlgItemInt(hwndDlg, IDC_SCORE, *pScore, FALSE);
+		SetDlgItemInt(hwndDlg, IDC_SCORE, pApp->gameScore, FALSE);
+
+		//scoreText = L"Top Scores:\n";
+
+		scoreText =  std::to_wstring(pApp->scores[0]) + L": " + std::wstring(pApp->userNames[0]) + L"\n";
+		SetDlgItemText(hwndDlg, IDC_SCORE_1, scoreText.c_str());
+		scoreText = std::to_wstring(pApp->scores[1]) + L": " + std::wstring(pApp->userNames[1]) + L"\n";
+		SetDlgItemText(hwndDlg, IDC_SCORE_2, scoreText.c_str());
+		scoreText = std::to_wstring(pApp->scores[2]) + L": " + std::wstring(pApp->userNames[2]) + L"\n";
+		SetDlgItemText(hwndDlg, IDC_SCORE_3, scoreText.c_str());
+
+        // Set the text in the dialog (assuming there's a control with ID IDC_SCORE_LIST to display this)
+
 		return TRUE;
 
 	case WM_COMMAND:
 		if (LOWORD(wParam) == IDOK) {
 			WCHAR playerName[100];
 			GetDlgItemText(hwndDlg, IDC_NAME, playerName, 100);
-			// Process playerName here (e.g., save or display it)
+			wcscpy_s(pApp->lastPlayerName, playerName);
 			EndDialog(hwndDlg, IDOK);
 			return TRUE;
 		}
@@ -698,11 +727,15 @@ INT_PTR CALLBACK ScoreDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM 
 }
 
 void Invaders_app::startNewGame(HWND window)
-{ 
+{
 	KillTimer(window, TIMER_ID);
-	
-	if(oldGame)
-	DialogBoxParamW(m_instance, MAKEINTRESOURCE(IDD_SCORE_DIALOG), m_main, ScoreDialogProc, (LPARAM)&gameScore);
+
+	if (oldGame)
+	{
+		DialogBoxParamW(m_instance, MAKEINTRESOURCE(IDD_SCORE_DIALOG), m_main, ScoreDialogProc, (LPARAM)this);
+		lastPlayerScore = gameScore;
+		sortScores();
+	}
 
 	oldGame = true;
 	for (int i = 0; i < enemies.size(); i++)
@@ -715,7 +748,7 @@ void Invaders_app::startNewGame(HWND window)
 
 	int newWidth = wWidth[window_size];
 	int newHeight = wHeight[window_size];
-	
+
 	RECT size{ 0, 0, wWidth[window_size], wHeight[window_size] };
 	AdjustWindowRectEx(&size, main_style, true, ex_style);
 
@@ -736,7 +769,7 @@ void Invaders_app::startNewGame(HWND window)
 	);
 
 	// enemies: 
-	gameScore = 0; 
+	gameScore = 0;
 	int columns = enemyGridWidth[window_size];
 	int rows = enemyGridHeight[window_size];
 	int startingX = ((newWidth / 2) - columns * (enemyWidth + space) / 2);
@@ -750,7 +783,7 @@ void Invaders_app::startNewGame(HWND window)
 				0,
 				L"STATIC",
 				nullptr,
-				WS_CHILD | WS_VISIBLE | SS_BITMAP | WS_CLIPCHILDREN | WS_CLIPSIBLINGS,
+				WS_CHILD | WS_VISIBLE | SS_BITMAP,
 				xPos, yPos,  // position in parent
 				enemyWidth, enemyHeight, // size
 				window,
@@ -768,12 +801,28 @@ void Invaders_app::startNewGame(HWND window)
 		SetWindowPos(enemies[i].hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
 	}
 
-	SetWindowPos(m_player, HWND_TOP, (newWidth / 2) - 25 , newHeight - 75 , 0,0, SWP_NOSIZE);
+	SetWindowPos(m_player, HWND_TOP, (newWidth / 2) - 25, newHeight - 75, 0, 0, SWP_NOSIZE);
 
 	SetTimer(m_main, TIMER_ID, TIMER_INTERVAL, nullptr);
 }
 
-void Invaders_app::loadConfig() 
+void Invaders_app::sortScores()
+{
+	// New score is higher than the lowest, shift others down
+	scores[2] = scores[1];
+	wcscpy_s(userNames[2], 100, userNames[1]);
+
+	scores[1] = scores[0];
+	wcscpy_s(userNames[1], 100, userNames[0]);
+
+	// Place the new score at the top
+	scores[0] = lastPlayerScore;
+	wcscpy_s(userNames[0], 100, lastPlayerName);
+
+
+}
+
+void Invaders_app::loadConfig()
 {
 	int bg = GetPrivateProfileInt(L"Settings", L"bg_mode", 0, CONFIG_FILE_PATH);
 	bg_mode = (bgMode)bg;
@@ -781,22 +830,46 @@ void Invaders_app::loadConfig()
 	window_size = (wSize)ws;
 	int  bgIsBitmap = GetPrivateProfileInt(L"Settings", L"is_background_bitmap", 0, CONFIG_FILE_PATH);
 	backgroundIsBitmap = (bool)bgIsBitmap;
-	 
+
 	wchar_t buffer[256];
 
 	int R, G, B;
 	GetPrivateProfileString(L"Settings", L"last_solid_brush", L"0,0,0", buffer, 256, CONFIG_FILE_PATH);
-	swscanf_s(buffer, L"%d,%d,%d", &R,&G,&B);
+	swscanf_s(buffer, L"%d,%d,%d", &R, &G, &B);
 	bgColor = RGB(R, G, B);
 
 	GetPrivateProfileString(L"Settings", L"last_bitmap_name", L"", bitmapFilePath, MAX_PATH, CONFIG_FILE_PATH);
 	background_bitmap = (HBITMAP)LoadImage(NULL, bitmapFilePath, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 
 	//reading users 
-	//wchar_t user0[10]; 
-	//int score;
-	//GetPrivateProfileString(L"usersScores", L"user0", L"0", buffer, 256, CONFIG_FILE_PATH);
-	//swscanf_s(buffer, L"%d,%s", &score, &user0);
+	for (int i = 0; i < 3; ++i) {
+		wchar_t userKey[20];
+		swprintf_s(userKey, 20, L"user%d", i);  // Build the user key (user0, user1, user2)
+
+		// Read the user data from the INI file
+		GetPrivateProfileString(L"usersScores", userKey, L"", buffer, sizeof(buffer) / sizeof(wchar_t), CONFIG_FILE_PATH);
+
+		// If the value exists, parse the score and username
+		if (wcslen(buffer) > 0) {
+			int score;
+			wchar_t name[100];
+
+			// Parse the value (int, string)
+			int parsedItems = swscanf_s(buffer, L"%d,%s", &score, name, (unsigned)_countof(name));
+
+			// Store the parsed data in the arrays
+			scores[i] = score;
+			if (parsedItems == 2) {
+				scores[i] = score;
+				wcscpy_s(userNames[i], name);  // Copy the parsed name
+			}
+			else {
+				// If parsing failed, set default values or handle as needed
+				scores[i] = 0;
+				wcscpy_s(userNames[i], L"-------");
+			}
+		}
+	}
 
 }
 
@@ -825,6 +898,15 @@ void Invaders_app::updateConfig() {
 	wchar_t bmName[MAX_PATH];
 	wcscpy_s(bmName, background_bitmap ? bitmapFilePath : L"");
 	WritePrivateProfileString(L"Settings", L"last_bitmap_name", bmName, CONFIG_FILE_PATH);
+
+	for (int i = 0; i < 3; ++i) {
+		wchar_t userKey[20];
+		swprintf_s(userKey, 20, L"user%d", i);
+		wchar_t userScore[256];
+		swprintf_s(userScore, 256, L"%d,%s", scores[i], userNames[i]);
+		WritePrivateProfileString(L"usersScores", userKey, userScore, CONFIG_FILE_PATH);
+	}
+
 }
 
 

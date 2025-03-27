@@ -100,14 +100,21 @@ private:
 
 
 	// logic 
-	int gameScore = 0;
 	bool oldGame = false;
+
 
 	void loadConfig();
 	void updateConfig(); 
 	wchar_t bitmapFilePath[MAX_PATH];
 
+	void sortScores();
 public:
 	Invaders_app(HINSTANCE instance);
 	int run(int show_command);
+
+	int gameScore = 0;
+	int lastPlayerScore; 
+	WCHAR lastPlayerName[100];
+	int scores[3];  
+	wchar_t userNames[3][100]; 
 };
