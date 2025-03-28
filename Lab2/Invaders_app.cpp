@@ -1,10 +1,11 @@
 #include "Invaders_app.h"
 #include "board.h"
-
+#include <filesystem>
+#include <string>
 
 #define NOMINMAX
 
-#define CONFIG_FILE_PATH L"C:\Users\matbl\Desktop\everything\config.ini" // important, change it to your ini file path!!!! 
+#define CONFIG_FILE_PATH L"config.ini"
 
 std::wstring const Invaders_app::s_class_name{ L"Space Invaders" };
 INT_PTR CALLBACK ScoreDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -19,7 +20,7 @@ Invaders_app::Invaders_app(HINSTANCE instance)
 
 	m_enemy_direction{ 1 }
 {
-
+	fullPath = std::filesystem::absolute(CONFIG_FILE_PATH).wstring();
 	loadConfig();
 
 	register_class();
@@ -174,15 +175,6 @@ LRESULT Invaders_app::window_proc(
 		return 0;
 
 	case WM_CTLCOLORSTATIC: // coloring of childs
-
-		//if (reinterpret_cast<HWND>(lparam) == m_enemy)
-		//{
-		//	return reinterpret_cast<INT_PTR>(m_enemy_brush);
-		//}
-		//else if (reinterpret_cast<HWND>(lparam) == m_player)
-		//{
-		//	return reinterpret_cast<INT_PTR>(m_player_brush);
-		//}
 			// Check if the control is in the bullet list
 		if (reinterpret_cast<HWND>(lparam) != m_player)
 			for (HWND bullet : m_bullets)
@@ -195,29 +187,6 @@ LRESULT Invaders_app::window_proc(
 		break;
 	case WM_PAINT:
 	{
-		/*PAINTSTRUCT ps;
-
-		HDC hdc = BeginPaint(window, &ps);
-
-		if (background_bitmap != NULL && backgroundIsBitmap)
-		{
-			ApplyBackgroundBitmap(window, hdc);
-		}
-		else
-		{
-			HBRUSH hBrush = CreateSolidBrush(bgColor);
-			FillRect(hdc, &ps.rcPaint, hBrush);
-			DeleteObject(hBrush);
-		}
-
-		playerSprite(hdc);
-		enemySPrite(hdc);
-
-		DisplayScore(m_main);
-
-		EndPaint(window, &ps);
-		return 0;*/
-
 		PAINTSTRUCT ps;
 
 		HDC hdc = BeginPaint(window, &ps);
@@ -272,19 +241,6 @@ LRESULT Invaders_app::window_proc(
 		return 0;
 
 	}
-	//case WM_ERASEBKGND:
-	//{
-	//	if (!backgroundIsBitmap)
-	//	{
-	//		HDC hdc = reinterpret_cast<HDC>(wparam);
-	//		RECT rect;
-	//		GetClientRect(window, &rect);
-	//		HBRUSH hBrush = CreateSolidBrush(bgColor);
-	//		FillRect(hdc, &rect, hBrush);
-	//	}
-
-	//	return 1; //confirm erase
-	//}
 	case WM_COMMAND:
 		switch (LOWORD(wparam))
 		{
@@ -532,15 +488,6 @@ void Invaders_app::on_timer()
 
 	GetWindowRect(m_player, &rect);
 	POINT pos = { rect.left, rect.top };
-	//if (playerMoove)
-	//{
-	//	SetWindowPos(m_player, nullptr, pos.x + moveAmount, pos.y, 50, 50, SWP_NOSIZE | SWP_NOZORDER);
-	//	playerMoove = false;
-	//}
-	//else
-	//{
-	//	SetWindowPos(m_player, nullptr, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOZORDER| SWP_NOMOVE);
-	//}
 
 	if (onArr)
 		OnArrows(arrWparam); 
@@ -902,21 +849,21 @@ void Invaders_app::sortScores()
 
 void Invaders_app::loadConfig()
 {
-	int bg = GetPrivateProfileInt(L"Settings", L"bg_mode", 0, CONFIG_FILE_PATH);
+	int bg = GetPrivateProfileInt(L"Settings", L"bg_mode", 0, fullPath.c_str());
 	bg_mode = (bgMode)bg;
-	int ws = GetPrivateProfileInt(L"Settings", L"window_size", 0, CONFIG_FILE_PATH);
+	int ws = GetPrivateProfileInt(L"Settings", L"window_size", 0, fullPath.c_str());
 	window_size = (wSize)ws;
-	int  bgIsBitmap = GetPrivateProfileInt(L"Settings", L"is_background_bitmap", 0, CONFIG_FILE_PATH);
+	int  bgIsBitmap = GetPrivateProfileInt(L"Settings", L"is_background_bitmap", 0, fullPath.c_str());
 	backgroundIsBitmap = (bool)bgIsBitmap;
 
 	wchar_t buffer[256];
 
 	int R, G, B;
-	GetPrivateProfileString(L"Settings", L"last_solid_brush", L"0,0,0", buffer, 256, CONFIG_FILE_PATH);
+	GetPrivateProfileString(L"Settings", L"last_solid_brush", L"0,0,0", buffer, 256, fullPath.c_str());
 	swscanf_s(buffer, L"%d,%d,%d", &R, &G, &B);
 	bgColor = RGB(R, G, B);
 
-	GetPrivateProfileString(L"Settings", L"last_bitmap_name", L"", bitmapFilePath, MAX_PATH, CONFIG_FILE_PATH);
+	GetPrivateProfileString(L"Settings", L"last_bitmap_name", L"", bitmapFilePath, MAX_PATH, fullPath.c_str());
 	background_bitmap = (HBITMAP)LoadImage(NULL, bitmapFilePath, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE);
 
 	//reading users 
@@ -925,7 +872,7 @@ void Invaders_app::loadConfig()
 		swprintf_s(userKey, 20, L"user%d", i);  // Build the user key (user0, user1, user2)
 
 		// Read the user data from the INI file
-		GetPrivateProfileString(L"usersScores", userKey, L"", buffer, sizeof(buffer) / sizeof(wchar_t), CONFIG_FILE_PATH);
+		GetPrivateProfileString(L"usersScores", userKey, L"", buffer, sizeof(buffer) / sizeof(wchar_t), fullPath.c_str());
 
 		// If the value exists, parse the score and username
 		if (wcslen(buffer) > 0) {
@@ -954,35 +901,35 @@ void Invaders_app::loadConfig()
 void Invaders_app::updateConfig() {
 	// Save bg_mode (converted to integer)
 	int bg = (int)bg_mode;  // assuming bg_mode is of type bgMode enum
-	WritePrivateProfileString(L"Settings", L"bg_mode", std::to_wstring(bg).c_str(), CONFIG_FILE_PATH);
+	WritePrivateProfileString(L"Settings", L"bg_mode", std::to_wstring(bg).c_str(), fullPath.c_str());
 
 	// Save window_size (converted to integer)
 	int ws = (int)window_size;  // assuming window_size is of type wSize enum
-	WritePrivateProfileString(L"Settings", L"window_size", std::to_wstring(ws).c_str(), CONFIG_FILE_PATH);
+	WritePrivateProfileString(L"Settings", L"window_size", std::to_wstring(ws).c_str(), fullPath.c_str());
 
 	// Save backgroundIsBitmap (convert to integer for boolean)
 	int bgIsBitmap = (backgroundIsBitmap) ? 1 : 0;
-	WritePrivateProfileString(L"Settings", L"is_background_bitmap", std::to_wstring(bgIsBitmap).c_str(), CONFIG_FILE_PATH);
+	WritePrivateProfileString(L"Settings", L"is_background_bitmap", std::to_wstring(bgIsBitmap).c_str(), fullPath.c_str());
 
 	// Save bgColor (RGB values)
 	int R = GetRValue(bgColor);
-	int G = GetGValue(bgColor);
+	int G = GetGValue(bgColor); 
 	int B = GetBValue(bgColor);
 	wchar_t colorBuffer[256];
 	swprintf_s(colorBuffer, 256, L"%d,%d,%d", R, G, B);
-	WritePrivateProfileString(L"Settings", L"last_solid_brush", colorBuffer, CONFIG_FILE_PATH);
+	WritePrivateProfileString(L"Settings", L"last_solid_brush", colorBuffer, fullPath.c_str());
 
 	// Save the last bitmap name
 	wchar_t bmName[MAX_PATH];
 	wcscpy_s(bmName, background_bitmap ? bitmapFilePath : L"");
-	WritePrivateProfileString(L"Settings", L"last_bitmap_name", bmName, CONFIG_FILE_PATH);
+	WritePrivateProfileString(L"Settings", L"last_bitmap_name", bmName, fullPath.c_str());
 
 	for (int i = 0; i < 3; ++i) {
 		wchar_t userKey[20];
 		swprintf_s(userKey, 20, L"user%d", i);
 		wchar_t userScore[256];
 		swprintf_s(userScore, 256, L"%d,%s", scores[i], userNames[i]);
-		WritePrivateProfileString(L"usersScores", userKey, userScore, CONFIG_FILE_PATH);
+		WritePrivateProfileString(L"usersScores", userKey, userScore, fullPath.c_str());
 	}
 
 }

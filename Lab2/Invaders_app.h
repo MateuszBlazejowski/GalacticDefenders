@@ -90,8 +90,6 @@ private:
 	static constexpr UINT_PTR TIMER_ID = 1;
 	static constexpr UINT TIMER_INTERVAL = 50;
 
-	//static constexpr UINT_PTR TIMER_ID = 2;
-	//static constexpr UINT TIMER_INTERVAL = 100;
 	void on_timer();
 
 	// painting
@@ -122,6 +120,8 @@ private:
 	wchar_t bitmapFilePath[MAX_PATH];
 
 	void sortScores();
+
+	std::wstring fullPath;
 public:
 	Invaders_app(HINSTANCE instance);
 	int run(int show_command);
