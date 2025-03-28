@@ -1,13 +1,10 @@
 #include "Invaders_app.h"
 #include "board.h"
-#include <dwmapi.h>
-#include <stdexcept>
-#include <iostream>
-#include "resource.h"
-#include <commdlg.h>
-#include <stdio.h>
 
-#define CONFIG_FILE_PATH L"C:\\Users\\matbl\\Desktop\\config.ini" // important, change it to your ini file path!!!! 
+
+#define NOMINMAX
+
+#define CONFIG_FILE_PATH L"C:\Users\matbl\Desktop\everything\config.ini" // important, change it to your ini file path!!!! 
 
 std::wstring const Invaders_app::s_class_name{ L"Space Invaders" };
 INT_PTR CALLBACK ScoreDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM lParam);
@@ -47,15 +44,15 @@ bool Invaders_app::register_class() {
 	if (GetClassInfoExW(m_instance, s_class_name.c_str(),
 		&desc) != 0) return true;  // check if class existed 
 
-	desc = { .cbSize = sizeof(WNDCLASSEXW),
-	.lpfnWndProc = window_proc_static,
-	.hInstance = m_instance,
-	.hCursor = LoadCursorW(nullptr, L"IDC_ARROW"),
-	.hbrBackground =
-CreateSolidBrush(RGB(255, 255 , 255)),
-	.lpszMenuName = MAKEINTRESOURCEW(IDR_MENU1),
-	.lpszClassName = s_class_name.c_str(),
-	};
+	desc.cbSize = sizeof(WNDCLASSEXW);
+	desc.lpfnWndProc = window_proc_static;
+	desc.hInstance = m_instance;
+	desc.hCursor = LoadCursorW(nullptr, L"IDC_ARROW");
+	desc.hbrBackground =
+		CreateSolidBrush(RGB(255, 255, 255));
+	desc.lpszMenuName = MAKEINTRESOURCEW(IDR_MENU1);
+	desc.lpszClassName = s_class_name.c_str();
+
 
 	return RegisterClassExW(&desc) != 0;
 }
@@ -130,7 +127,11 @@ LRESULT Invaders_app::window_proc(
 	case WM_KEYDOWN:
 	{
 		if (wparam == VK_LEFT || wparam == VK_RIGHT)
-			OnArrows(wparam);
+		{
+			//OnArrows(wparam);
+			onArr = true; 
+			arrWparam = wparam; 
+		}
 		if (wparam == VK_SPACE)
 			OnSpace();
 		return 0;
@@ -194,7 +195,8 @@ LRESULT Invaders_app::window_proc(
 		break;
 	case WM_PAINT:
 	{
-		PAINTSTRUCT ps;
+		/*PAINTSTRUCT ps;
+
 		HDC hdc = BeginPaint(window, &ps);
 
 		if (background_bitmap != NULL && backgroundIsBitmap)
@@ -214,7 +216,61 @@ LRESULT Invaders_app::window_proc(
 		DisplayScore(m_main);
 
 		EndPaint(window, &ps);
+		return 0;*/
+
+		PAINTSTRUCT ps;
+
+		HDC hdc = BeginPaint(window, &ps);
+
+		// Step 1: Create a memory device context compatible with the screen
+		memDC = CreateCompatibleDC(hdc);
+
+		// Step 2: Create a bitmap compatible with the screen
+		RECT rect;
+		GetClientRect(window, &rect);
+		int width = rect.right - rect.left;
+		int height = rect.bottom - rect.top;
+
+		HBITMAP memBitmap = CreateCompatibleBitmap(hdc, width, height);
+
+
+		// Step 3: Select the bitmap into the memory DC
+		HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
+
+
+
+		// Step 4: Fill the background (optional, for erasing old content)
+		HBRUSH whiteBrush = CreateSolidBrush(RGB(255, 255, 255)); // Create a white brush
+		FillRect(memDC, &rect, whiteBrush); // Fill with the white brush
+		DeleteObject(whiteBrush); // Don't forget to clean up the brush!
+
+		// Step 5: Do all your drawing on memDC (off-screen)
+		if (background_bitmap != NULL && backgroundIsBitmap)
+		{
+			ApplyBackgroundBitmap(window, memDC);
+		}
+		else
+		{
+			HBRUSH hBrush = CreateSolidBrush(bgColor);
+			FillRect(memDC, &ps.rcPaint, hBrush);
+			DeleteObject(hBrush);
+		}
+
+
+		playerSprite(memDC);
+		enemySPrite(memDC);
+		DisplayScore(m_main, memDC);
+
+		// Step 6: Copy the completed image to the screen in one go
+		BitBlt(hdc, 0, 0, width, height, memDC, 0, 0, SRCCOPY);
+
+		// Step 7: Cleanup
+		SelectObject(memDC, oldBitmap);
+		DeleteObject(memBitmap);
+		DeleteDC(memDC);
+		EndPaint(window, &ps);
 		return 0;
+
 	}
 	//case WM_ERASEBKGND:
 	//{
@@ -473,11 +529,28 @@ void Invaders_app::on_timer()
 		}
 	}
 
+
+	GetWindowRect(m_player, &rect);
+	POINT pos = { rect.left, rect.top };
+	//if (playerMoove)
+	//{
+	//	SetWindowPos(m_player, nullptr, pos.x + moveAmount, pos.y, 50, 50, SWP_NOSIZE | SWP_NOZORDER);
+	//	playerMoove = false;
+	//}
+	//else
+	//{
+	//	SetWindowPos(m_player, nullptr, 0, 0, 0, 0, SWP_NOSIZE | SWP_NOZORDER| SWP_NOMOVE);
+	//}
+
+	if (onArr)
+		OnArrows(arrWparam); 
+
 	if (enemies.empty())
 	{
 
 		startNewGame(m_main);
 	}
+
 
 	// updating animation
 	playerBitmapOffsetIterator++;
@@ -494,7 +567,7 @@ void Invaders_app::OnArrows(WPARAM wparam)
 {
 	RECT rect;
 	GetWindowRect(m_player, &rect);
-	int moveAmount = 10;
+	moveAmount = 10;
 
 
 	POINT pos = { rect.left, rect.top };// Get the parent window (so we can use client coordinates)
@@ -503,13 +576,18 @@ void Invaders_app::OnArrows(WPARAM wparam)
 	if (wparam == VK_LEFT && pos.x > 10)
 	{
 		SetWindowPos(m_player, nullptr, pos.x - moveAmount, pos.y, 50, 50, SWP_NOSIZE | SWP_NOZORDER);
+		playerMoove = true; 
+		moveAmount = 10; 
 	}
 	else if (wparam == VK_RIGHT && pos.x + (rect.right - rect.left + 10) < wWidth[window_size])
 	{
 		SetWindowPos(m_player, nullptr, pos.x + moveAmount, pos.y, 50, 50, SWP_NOSIZE | SWP_NOZORDER);
+		playerMoove = true;
+		moveAmount = -10;
 	}
+	onArr = false; 
 	//InvalidateRect(m_main, nullptr, TRUE);
-	RedrawWindow(m_main, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE);
+	//RedrawWindow(m_main, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE);
 }
 
 void Invaders_app::OnSpace()
@@ -562,9 +640,8 @@ void Invaders_app::enemySPrite(HDC hdc)
 	DeleteDC(hdcMem);
 }
 
-void Invaders_app::DisplayScore(HWND hwnd) {
-	// Retrieve the device context (DC) for the window
-	HDC hdc = GetDC(hwnd);
+
+void Invaders_app::DisplayScore(HWND hwnd, HDC memDC) {
 	// Create and set up the font
 	HFONT hFont = CreateFont(
 		30,               // Font height
@@ -582,25 +659,25 @@ void Invaders_app::DisplayScore(HWND hwnd) {
 		FF_DONTCARE,      // Font family
 		L"Lucida Console" // Font name
 	);
-	// Select the font into the DC
-	HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
+	// Select the font into the memory DC
+	HFONT oldFont = (HFONT)SelectObject(memDC, hFont);
 	// Prepare the score text
 	std::wstring scoreText = L"Score: " + std::to_wstring(gameScore);
 	// Set text color and background mode
-	SetTextColor(hdc, RGB(0, 0, 0)); // Black color
-	SetBkMode(hdc, TRANSPARENT);      // Transparent background
+	SetTextColor(memDC, RGB(0, 0, 0)); // Black color
+	SetBkMode(memDC, TRANSPARENT);      // Transparent background
 	// Prepare the client area for the text positioning
 	RECT clientRect;
 	GetClientRect(hwnd, &clientRect);  // Get the client area dimensions
 	clientRect.top = clientRect.bottom - 45; // Position the text near the bottom
 	clientRect.left = 15;  // Padding from the left
 	// Draw the text in the specified area
-	DrawTextW(hdc, scoreText.c_str(), -1, &clientRect, DT_LEFT | DT_NOCLIP);
-	// Clean up by restoring the old font and releasing the device context
-	SelectObject(hdc, oldFont);  // Restore the previous font
-	DeleteObject(hFont);         // Delete the font object
-	ReleaseDC(hwnd, hdc);        // Release the DC
+	DrawTextW(memDC, scoreText.c_str(), -1, &clientRect, DT_LEFT | DT_NOCLIP);
+	// Clean up by restoring the old font
+	SelectObject(memDC, oldFont);  // Restore the previous font
+	DeleteObject(hFont);          // Delete the font object
 }
+
 
 void Invaders_app::UpdateMenuCheck(HMENU hMenu, int checkedItemID, const std::vector<int>& MenuItems)
 {
@@ -633,7 +710,8 @@ void Invaders_app::ApplyBackgroundBitmap(HWND window, HDC hdc)
 
 	float widthRatio = (float)clientRect.right / bitmapInfo.bmWidth;; // for fitting 
 	float heightRatio = (float)clientRect.bottom / bitmapInfo.bmHeight; // for fitting 
-	float scaleRatio = std::min(widthRatio, heightRatio); // for fitting 
+	float scaleRatio =  // for fitting 
+		(((widthRatio) < (heightRatio)) ? (widthRatio) : (heightRatio));
 
 
 
@@ -702,14 +780,14 @@ INT_PTR CALLBACK ScoreDialogProc(HWND hwndDlg, UINT uMsg, WPARAM wParam, LPARAM 
 
 		//scoreText = L"Top Scores:\n";
 
-		scoreText =  std::to_wstring(pApp->scores[0]) + L": " + std::wstring(pApp->userNames[0]) + L"\n";
+		scoreText = std::to_wstring(pApp->scores[0]) + L": " + std::wstring(pApp->userNames[0]) + L"\n";
 		SetDlgItemText(hwndDlg, IDC_SCORE_1, scoreText.c_str());
 		scoreText = std::to_wstring(pApp->scores[1]) + L": " + std::wstring(pApp->userNames[1]) + L"\n";
 		SetDlgItemText(hwndDlg, IDC_SCORE_2, scoreText.c_str());
 		scoreText = std::to_wstring(pApp->scores[2]) + L": " + std::wstring(pApp->userNames[2]) + L"\n";
 		SetDlgItemText(hwndDlg, IDC_SCORE_3, scoreText.c_str());
 
-        // Set the text in the dialog (assuming there's a control with ID IDC_SCORE_LIST to display this)
+		// Set the text in the dialog (assuming there's a control with ID IDC_SCORE_LIST to display this)
 
 		return TRUE;
 

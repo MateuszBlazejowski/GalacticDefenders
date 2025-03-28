@@ -5,6 +5,13 @@
 #include "Enemy.h"
 #include <string>
 #include <list>
+#include <dwmapi.h>
+#include <stdexcept>
+#include <iostream>
+#include "resource.h"
+#include <commdlg.h>
+#include <stdio.h>
+#include <algorithm>
 #include "resource.h"
 class Invaders_app
 {
@@ -36,6 +43,8 @@ private:
 
 	bool backgroundIsBitmap = false;
 	HBITMAP background_bitmap;
+
+	HDC memDC; 
 
 	enum bgMode
 	{
@@ -72,6 +81,11 @@ private:
 	std::vector<HWND> m_bullets; // List to store bullet  
 	void startNewGame(HWND window);
 
+	bool onArr = false;
+	WPARAM arrWparam;
+
+	bool playerMoove = false;
+	int moveAmount = 10;
 	//timer
 	static constexpr UINT_PTR TIMER_ID = 1;
 	static constexpr UINT TIMER_INTERVAL = 50;
@@ -84,7 +98,7 @@ private:
 	void update_transparency(int a);
 	void playerSprite(HDC hdc);
 	void enemySPrite(HDC hdc);
-	void DisplayScore(HWND hwnd);
+	void DisplayScore(HWND hwnd, HDC memDC);
 	int enemyBitmapOffsetIterator = 0;
 	int playerBitmapOffsetIterator = 0;
 
