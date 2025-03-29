@@ -1,5 +1,4 @@
 #include "Invaders_app.h"
-#include "board.h"
 #include <filesystem>
 #include <string>
 
@@ -26,7 +25,7 @@ Invaders_app::Invaders_app(HINSTANCE instance)
 	register_class();
 	main_style = WS_OVERLAPPED | WS_SYSMENU |
 		WS_CAPTION | WS_MINIMIZEBOX;
-	ex_style = WS_SYSMENU | WS_EX_TOPMOST | WS_EX_LAYERED;// | WS_EX_COMPOSITED ??? maybe
+	ex_style = WS_SYSMENU | WS_EX_TOPMOST | WS_EX_LAYERED;
 
 
 	player_bitmap = (HBITMAP)LoadBitmapW(m_instance, MAKEINTRESOURCE(IDB_BITMAP2));
@@ -43,7 +42,7 @@ bool Invaders_app::register_class() {
 	WNDCLASSEXW desc{};
 
 	if (GetClassInfoExW(m_instance, s_class_name.c_str(),
-		&desc) != 0) return true;  // check if class existed 
+		&desc) != 0) return true; 
 
 	desc.cbSize = sizeof(WNDCLASSEXW);
 	desc.lpfnWndProc = window_proc_static;
@@ -187,6 +186,7 @@ LRESULT Invaders_app::window_proc(
 		break;
 	case WM_PAINT:
 	{
+		// double buffering used to reduce fickering 
 		PAINTSTRUCT ps;
 
 		HDC hdc = BeginPaint(window, &ps);
@@ -245,27 +245,22 @@ LRESULT Invaders_app::window_proc(
 		switch (LOWORD(wparam))
 		{
 		case ID_OPTIONS_SMALL:
-			// Handle Small option
 			currentSizeOption = ID_OPTIONS_SMALL;
 			window_size = Small;
 			startNewGame(window);
 			break;
 		case ID_OPTIONS_MEDIUM:
-			// Handle Medium option
 			currentSizeOption = ID_OPTIONS_MEDIUM;
 			window_size = Medium;
 			startNewGame(window);
 			break;
 		case ID_OPTIONS_LARGE:
-			// Handle Large option
 			currentSizeOption = ID_OPTIONS_LARGE;
 			window_size = Large;
 			startNewGame(window);
 			break;
 
 		case ID_BACKGROUND_SOLID:
-
-			// Handle Solid color option
 			currentBackgroundOption = ID_BACKGROUND_SOLID;
 			CHOOSECOLOR cc;
 			static COLORREF acrCustClr[16];
@@ -323,22 +318,18 @@ LRESULT Invaders_app::window_proc(
 			}
 			break;
 		case ID_BACKGROUND_CENTER:
-			// Handle Center option
 			bg_mode = center;
 			currentBackgroundOption = ID_BACKGROUND_CENTER;
 			break;
 		case ID_BACKGROUND_FILL:
-			// Handle Fill option
 			bg_mode = fill;
 			currentBackgroundOption = ID_BACKGROUND_FILL;
 			break;
 		case ID_BACKGROUND_TILE:
-			// Handle Tile option
 			bg_mode = tile;
 			currentBackgroundOption = ID_BACKGROUND_TILE;
 			break;
 		case ID_BACKGROUND_FIT:
-			// Handle Fit option
 			bg_mode = fit;
 			currentBackgroundOption = ID_BACKGROUND_FIT;
 			break;
@@ -346,7 +337,6 @@ LRESULT Invaders_app::window_proc(
 			startNewGame(window);
 			break;
 		case ID_HELP_ABOUT:
-			// Handle About option
 			MessageBox(window, L"BEST GAME EVER\nnothing to explain, everything is obvious\nand perfect", L"About", MB_OK);
 			break;
 		default:
@@ -533,8 +523,6 @@ void Invaders_app::OnArrows(WPARAM wparam)
 		moveAmount = -10;
 	}
 	onArr = false; 
-	//InvalidateRect(m_main, nullptr, TRUE);
-	//RedrawWindow(m_main, nullptr, nullptr, RDW_INVALIDATE | RDW_UPDATENOW | RDW_ERASE);
 }
 
 void Invaders_app::OnSpace()

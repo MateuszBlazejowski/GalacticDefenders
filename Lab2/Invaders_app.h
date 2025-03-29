@@ -1,7 +1,6 @@
 #pragma once
 #include <windows.h>
 #include <commdlg.h>
-#include "board.h"
 #include "Enemy.h"
 #include <string>
 #include <list>
@@ -29,10 +28,9 @@ private:
 	DWORD main_style;
 	DWORD ex_style; 
 
-	HWND m_main, m_player;// , m_enemy;
+	HWND m_main, m_player;
 	std::vector<Enemy> enemies;
 
-	board m_board;
 	POINT m_screen_size;
 	HBRUSH m_enemy_brush;
 	HBRUSH m_player_brush;
@@ -80,16 +78,16 @@ private:
 	void OnSpace();
 	std::vector<HWND> m_bullets; // List to store bullet  
 	void startNewGame(HWND window);
-
 	bool onArr = false;
 	WPARAM arrWparam;
 
 	bool playerMoove = false;
 	int moveAmount = 10;
+
 	//timer
+
 	static constexpr UINT_PTR TIMER_ID = 1;
 	static constexpr UINT TIMER_INTERVAL = 50;
-
 	void on_timer();
 
 	// painting
@@ -113,15 +111,15 @@ private:
 
 	// logic 
 	bool oldGame = false;
-
-
 	void loadConfig();
 	void updateConfig(); 
 	wchar_t bitmapFilePath[MAX_PATH];
-
 	void sortScores();
 
+	// files 
 	std::wstring fullPath;
+
+
 public:
 	Invaders_app(HINSTANCE instance);
 	int run(int show_command);

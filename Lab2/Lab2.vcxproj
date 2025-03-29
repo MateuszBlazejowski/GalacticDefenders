@@ -132,13 +132,11 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="Invaders_app.cpp" />
-    <ClCompile Include="board.cpp" />
     <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Enemy.h" />
     <ClInclude Include="Invaders_app.h" />
-    <ClInclude Include="board.h" />
     <ClInclude Include="resource.h" />
   </ItemGroup>
   <ItemGroup>
